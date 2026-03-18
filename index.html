@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Deriv MT5 — EMA Trend Bot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;600&display=swap');
+  :root{--c1:#00D4FF;--c2:#0088AA;--green:#00FF88;--red:#FF3355;--amber:#FFB800;--bg:#06080F;--bg2:#0C0F1A;--bg3:#121520;--border:#1E2235;--text:#D0D8F0;--muted:#505878;--mono:'JetBrains Mono',monospace;--head:'Rajdhani',sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--head);min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 20% 10%,rgba(0,212,255,0.04) 0%,transparent 60%);pointer-events:none;z-index:0;}
+  .container{position:relative;z-index:1;max-width:500px;margin:0 auto;padding:14px;}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--c1),var(--c2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .logo-name{font-size:20px;font-weight:700;letter-spacing:2px;}
+  .logo-sub{font-size:10px;color:var(--c1);font-family:var(--mono);letter-spacing:3px;margin-top:1px;}
+  .badge-strategy{background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);border-radius:6px;padding:4px 10px;font-size:10px;color:var(--c1);font-family:var(--mono);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all .3s;display:inline-block;}
+  .dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1.2s infinite;}
+  .dot.err{background:var(--red);}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .status-row{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .tabs{display:flex;gap:4px;margin-bottom:14px;}
+  .tab-btn{flex:1;padding:9px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:1.5px;cursor:pointer;transition:all .2s;text-transform:uppercase;}
+  .tab-btn.active{background:rgba(0,212,255,0.1);border-color:var(--c1);color:var(--c1);}
+  .tab-content{display:none;}.tab-content.active{display:block;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
+  .card-title{font-size:9px;font-family:var(--mono);color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .card-title::after{content:'';flex:1;height:1px;background:var(--border);}
+  .price-big{font-family:var(--mono);font-size:32px;font-weight:600;color:var(--c1);text-align:center;letter-spacing:2px;padding:6px 0;}
+  .price-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;}
+  .sym-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .sym-pill{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .2s;}
+  .sym-pill.active{border-color:var(--c1);color:var(--c1);background:rgba(0,212,255,0.08);}
+  .signal-box{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+  .sig-badge{padding:4px 14px;border-radius:5px;font-size:12px;font-weight:700;letter-spacing:1px;font-family:var(--mono);}
+  .sig-badge.buy{background:rgba(0,255,136,0.12);color:var(--green);border:1px solid rgba(0,255,136,0.3);}
+  .sig-badge.sell{background:rgba(255,51,85,0.12);color:var(--red);border:1px solid rgba(255,51,85,0.3);}
+  .sig-badge.wait{background:rgba(80,88,120,0.15);color:var(--muted);border:1px solid var(--border);}
+  .ind-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(30,34,53,0.7);font-family:var(--mono);font-size:12px;}
+  .ind-row:last-child{border-bottom:none;}
+  .ind-lbl{color:var(--muted);}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+  .metric{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;}
+  .metric-val{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1;margin-bottom:4px;}
+  .metric-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;}
+  .trade-panel{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;}
+  .trade-panel.buy-trade{border-color:rgba(0,255,136,0.3);}
+  .trade-panel.sell-trade{border-color:rgba(255,51,85,0.3);}
+  .tp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .tp-dir{font-size:13px;font-weight:700;font-family:var(--mono);letter-spacing:1px;}
+  .tp-dir.buy{color:var(--green);}
+  .tp-dir.sell{color:var(--red);}
+  .tp-stat{font-size:10px;color:var(--muted);font-family:var(--mono);}
+  .tp-levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .tp-level{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;}
+  .tp-level-lbl{font-size:8px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;}
+  .tp-level-val{font-size:13px;font-family:var(--mono);font-weight:600;}
+  .tp-level-val.entry{color:var(--c1);}
+  .tp-level-val.sl{color:var(--red);}
+  .tp-level-val.tp{color:var(--green);}
+  .pips-display{text-align:center;padding:12px 0;}
+  .pips-big{font-family:var(--mono);font-size:28px;font-weight:600;line-height:1;}
+  .pips-big.pos{color:var(--green);}
+  .pips-big.neg{color:var(--red);}
+  .pips-big.zero{color:var(--muted);}
+  .pips-sub{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;}
+  .inp{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;transition:border-color .2s;}
+  .inp:focus{border-color:var(--c1);}
+  .inp::placeholder{color:var(--muted);}
+  .inp-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+  .inp-grp label{font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;display:block;margin-bottom:4px;text-transform:uppercase;}
+  .inp-grp select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 10px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;}
+  .inp-grp select option{background:var(--bg2);}
+  .btn-run{width:100%;padding:14px;background:var(--c1);color:#000;border:none;border-radius:10px;font-family:var(--head);font-size:15px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s;margin-top:4px;}
+  .btn-run:hover{opacity:.9;transform:translateY(-1px);}
+  .btn-stop{width:100%;padding:14px;background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;font-family:var(--head);font-size:15px;font-weight:700;letter-spacing:2px;cursor:pointer;display:none;transition:all .2s;margin-top:4px;}
+  .btn-stop:hover{background:rgba(255,51,85,0.1);}
+  .t-log{max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .t-row{display:grid;grid-template-columns:auto 60px 40px 70px 70px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(30,34,53,0.5);font-size:11px;font-family:var(--mono);}
+  .t-row:last-child{border-bottom:none;}
+  .t-time{color:var(--muted);font-size:10px;}
+  .t-dir{padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;text-align:center;}
+  .t-dir.b{background:rgba(0,255,136,0.1);color:var(--green);}
+  .t-dir.s{background:rgba(255,51,85,0.1);color:var(--red);}
+  .t-pips{font-weight:600;}
+  .t-pips.p{color:var(--green);}
+  .t-pips.n{color:var(--red);}
+  .t-lot{color:var(--muted);}
+  .log-scroll{max-height:140px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .log-line{font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 0;border-bottom:1px solid rgba(30,34,53,0.3);}
+  .log-line.i{color:var(--c1);}
+  .log-line.s{color:var(--green);}
+  .log-line.e{color:var(--red);}
+  .loss-wrap{background:var(--bg3);border-radius:4px;height:5px;margin:8px 0;overflow:hidden;}
+  .loss-fill{height:100%;background:var(--green);border-radius:4px;width:100%;transition:width .5s,background .5s;}
+  .alert-box{background:rgba(255,51,85,0.1);border:1px solid rgba(255,51,85,0.3);border-radius:8px;padding:12px;font-size:13px;color:var(--red);display:none;margin-bottom:10px;text-align:center;}
+  .progress-wrap{background:var(--bg3);border-radius:3px;height:3px;margin:6px 0;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--c1);border-radius:3px;width:0%;transition:width 1s linear;}
+  .no-trade-msg{text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:1px;line-height:1.8;}
+  .info-note{font-size:10px;font-family:var(--mono);background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.15);border-radius:6px;padding:8px;line-height:1.7;color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body>
+<script>
+function switchTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+}
+</script>
+<div class="container">
+
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">📈</div>
+      <div>
+        <div class="logo-name">EMA<span style="color:var(--c1)">TREND</span></div>
+        <div class="logo-sub">DERIV MT5 · CFD</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="badge-strategy">BOT 1 · EMA 9/50</div>
+      <div class="status-row" style="justify-content:flex-end;margin-top:6px">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">OFFLINE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert-box" id="alertBox"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dash',this)">Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('trade',this)">Live Trade</button>
+    <button class="tab-btn" onclick="switchTab('settings',this)">Settings</button>
+    <button class="tab-btn" onclick="switchTab('history',this)">History</button>
+    <button class="tab-btn" onclick="switchTab('syslog',this)">Log</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="tab-content active" id="tab-dash">
+    <div class="card">
+      <div class="card-title">Trading Pair</div>
+      <div class="sym-pills">
+        <div class="sym-pill active" onclick="changeSym('XAUUSD','XAU/USD',this)">XAU/USD</div>
+        <div class="sym-pill" onclick="changeSym('EURUSD','EUR/USD',this)">EUR/USD</div>
+        <div class="sym-pill" onclick="changeSym('GBPUSD','GBP/USD',this)">GBP/USD</div>
+        <div class="sym-pill" onclick="changeSym('USDJPY','USD/JPY',this)">USD/JPY</div>
+      </div>
+      <div class="price-big" id="livePrice">—</div>
+      <div class="price-meta">
+        <span id="priceChange" style="color:var(--muted)">Awaiting feed...</span>
+        <span>Spread: <span id="spreadVal" style="color:var(--text)">—</span> pips</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" id="candleProgress"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--mono)">
+        <span>Candle: <span id="candleTimer">—</span></span>
+        <span id="symLabel" style="color:var(--c1)">GOLD / USD</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">EMA Crossover Signal</div>
+      <div class="signal-box">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;font-family:var(--mono)">EMA 9 vs EMA 50</div>
+          <div id="sigText" style="color:var(--text);font-size:13px">Waiting for candle data...</div>
+        </div>
+        <div class="sig-badge wait" id="sigBadge">WAIT</div>
+      </div>
+      <div class="ind-row"><span class="ind-lbl">EMA 9 (fast)</span><span id="ema9v" style="color:var(--text)">—</span></div>
+      <div class="ind-row"><span class="ind-lbl">EMA 50 (slow)</span><span id="ema50v" style="color:var(--text)">—</span></div>
+      <div class="ind-row"><span class="ind-lbl">RSI 14</span><span id="rsiv" style="color:var(--text)">—</span></div>
+      <div class="ind-row"><span class="ind-lbl">Current Trend</span><span id="trendv" style="color:var(--muted)">—</span></div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-val" id="metBal" style="color:var(--c1)">$—</div><div class="metric-lbl">MT5 Balance</div></div>
+      <div class="metric"><div class="metric-val" id="metPnl" style="color:var(--text)">$0.00</div><div class="metric-lbl">Today P&L</div></div>
+      <div class="metric"><div class="metric-val" id="metWR" style="color:var(--text)">—%</div><div class="metric-lbl">Win Rate</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-val" id="metWins" style="color:var(--green)">0</div><div class="metric-lbl">Wins</div></div>
+      <div class="metric"><div class="metric-val" id="metLoss" style="color:var(--red)">0</div><div class="metric-lbl">Losses</div></div>
+      <div class="metric"><div class="metric-val" id="metPips" style="color:var(--amber)">0.0</div><div class="metric-lbl">Total Pips</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Daily Loss Guard</div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px">
+        <span>$0</span><span id="lossLimitLbl" style="color:var(--red)">-$10</span>
+      </div>
+      <div class="loss-wrap"><div class="loss-fill" id="lossFill"></div></div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px">
+        Loss used today: <span id="lossUsed" style="color:var(--text)">$0.00</span>
+      </div>
+    </div>
+
+    <button class="btn-run" id="btnRun" onclick="startBot()">▶ START BOT</button>
+    <button class="btn-stop" id="btnStop" onclick="stopBot()">■ STOP BOT</button>
+  </div>
+
+  <!-- LIVE TRADE -->
+  <div class="tab-content" id="tab-trade">
+    <div class="card">
+      <div class="card-title">Active Position</div>
+      <div id="noTradeMsg" class="no-trade-msg">No open position<br><span style="color:var(--border);font-size:16px">—</span><br>Watching for EMA crossover...</div>
+      <div id="activeTradePnl" style="display:none">
+        <div id="activeTradePanel"></div>
+        <div class="pips-display">
+          <div class="pips-big zero" id="pipsPnl">0.0 pips</div>
+          <div class="pips-sub">Floating P&L: <span id="floatPnl" style="color:var(--muted)">$0.00</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Trade Parameters</div>
+      <div class="ind-row"><span class="ind-lbl">Lot Size</span><span id="curLot" style="color:var(--amber)">0.01 lots</span></div>
+      <div class="ind-row"><span class="ind-lbl">Est. Pip Value</span><span id="pipVal" style="color:var(--text)">—</span></div>
+      <div class="ind-row"><span class="ind-lbl">Stop Loss</span><span id="slDist" style="color:var(--red)">20 pips</span></div>
+      <div class="ind-row"><span class="ind-lbl">Take Profit</span><span id="tpDist" style="color:var(--green)">40 pips</span></div>
+      <div class="ind-row"><span class="ind-lbl">R:R Ratio</span><span id="rrRatio" style="color:var(--amber)">1:2.0</span></div>
+      <div class="ind-row"><span class="ind-lbl">Max Risk / Trade</span><span id="riskAmt" style="color:var(--text)">—</span></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="tab-content" id="tab-settings">
+    <div class="card">
+      <div class="card-title">MT5 Account Login</div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>MT5 Login ID</label>
+          <input type="text" class="inp" id="mt5Login" placeholder="e.g. 6049453">
+        </div>
+        <div class="inp-grp">
+          <label>MT5 Password</label>
+          <input type="password" class="inp" id="mt5Password" placeholder="Your MT5 password">
+        </div>
+      </div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>Account Type</label>
+          <select class="inp" id="accType">
+            <option value="demo">Demo (Deriv-Demo)</option>
+            <option value="real">Real (DerivSVG-Server-03)</option>
+          </select>
+        </div>
+        <div class="inp-grp">
+          <label>Deriv API Token</label>
+          <input type="password" class="inp" id="apiToken" placeholder="For WS auth">
+        </div>
+      </div>
+      <div class="info-note">
+        ⚠ Demo: Login 6049453 · Server Deriv-Demo<br>
+        ⚠ Real: Login 140681452 · Server DerivSVG-Server-03<br>
+        API token needed for WebSocket connection. MT5 password authorizes trading.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Lot Size & Risk</div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>Lot Size</label>
+          <input type="number" class="inp" id="lotSize" value="0.01" min="0.01" max="1" step="0.01">
+        </div>
+        <div class="inp-grp">
+          <label>Risk Mode</label>
+          <select class="inp" id="riskMode">
+            <option value="fixed">Fixed Lot</option>
+            <option value="pct">% of Balance</option>
+          </select>
+        </div>
+      </div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>Risk % (if % mode)</label>
+          <input type="number" class="inp" id="riskPct" value="1" min="0.5" max="5" step="0.5">
+        </div>
+        <div class="inp-grp">
+          <label>Daily Loss Limit ($)</label>
+          <input type="number" class="inp" id="lossLimit" value="10" min="1" max="100">
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--amber);font-family:var(--mono);padding:4px 0;">
+        💡 For $40 account: 0.01 lot keeps risk under $1/trade.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Stop Loss & Take Profit</div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>Stop Loss (pips)</label>
+          <input type="number" class="inp" id="slPips" value="20" min="5" max="200" oninput="updateRR()">
+        </div>
+        <div class="inp-grp">
+          <label>Take Profit (pips)</label>
+          <input type="number" class="inp" id="tpPips" value="40" min="5" max="500" oninput="updateRR()">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;margin-top:4px;">
+        <span style="color:var(--muted)">Risk : Reward</span>
+        <span id="rrDisplay" style="color:var(--amber)">1 : 2.0</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Strategy Parameters</div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>EMA Fast</label>
+          <input type="number" class="inp" id="emaFast" value="9" min="3" max="20">
+        </div>
+        <div class="inp-grp">
+          <label>EMA Slow</label>
+          <input type="number" class="inp" id="emaSlow" value="50" min="20" max="200">
+        </div>
+      </div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>RSI Overbought</label>
+          <input type="number" class="inp" id="rsiOB" value="70" min="60" max="80">
+        </div>
+        <div class="inp-grp">
+          <label>RSI Oversold</label>
+          <input type="number" class="inp" id="rsiOS" value="30" min="20" max="40">
+        </div>
+      </div>
+      <div class="inp-row">
+        <div class="inp-grp">
+          <label>Cooldown (min)</label>
+          <input type="number" class="inp" id="cooldown" value="5" min="1" max="60">
+        </div>
+        <div class="inp-grp">
+          <label>Max Spread (pips)</label>
+          <input type="number" class="inp" id="maxSpread" value="5" min="1" max="20">
+        </div>
+      </div>
+    </div>
+    <button class="btn-run" onclick="saveSettings()">💾 SAVE SETTINGS</button>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="tab-content" id="tab-history">
+    <div class="card">
+      <div class="card-title">Trade History</div>
+      <div style="display:grid;grid-template-columns:auto 60px 40px 70px 70px;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;">
+        <span>TIME</span><span>DIR</span><span>LOT</span><span>PIPS</span><span>P&L</span>
+      </div>
+      <div class="t-log" id="tradeLog">
+        <div style="text-align:center;padding:20px;color:var(--muted);font-family:var(--mono);font-size:11px">No trades yet.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Session Summary</div>
+      <div class="ind-row"><span class="ind-lbl">Total Pips</span><span id="sumPips" style="color:var(--text)">0.0</span></div>
+      <div class="ind-row"><span class="ind-lbl">Best Trade</span><span id="sumBest" style="color:var(--green)">—</span></div>
+      <div class="ind-row"><span class="ind-lbl">Worst Trade</span><span id="sumWorst" style="color:var(--red)">—</span></div>
+      <div class="ind-row"><span class="ind-lbl">Avg Pips / Trade</span><span id="sumAvg" style="color:var(--amber)">—</span></div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="tab-content" id="tab-syslog">
+    <div class="card">
+      <div class="card-title">System Log</div>
+      <div class="log-scroll" id="sysLog">
+        <div class="log-line i">EMA Trend Bot ready. Settings → enter MT5 login + API token → Save → Start.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+// ── STATE ─────────────────────────────────────────────
+let ws=null,isRunning=false,isConnected=false,mt5Ready=false;
+let balance=0,dailyPnl=0,wins=0,losses=0;
+let candleCloses=[],priceHistory=[],lastPrice=0,prevPrice=0;
+let candleCountdown=60,candleInterval=null,reqId=1;
+let lastSignal='wait',crossoverFired=false;
+let tradeCooldown=false,lastTradeTime=0;
+let currentTrade=null,allPips=[];
+// MT5 symbol map: bot symbol → MT5 symbol name
+const MT5SYM={XAUUSD:'XAUUSD',EURUSD:'EURUSD',GBPUSD:'GBPUSD',USDJPY:'USDJPY'};
+// Pip sizes
+const PIP={XAUUSD:0.01,EURUSD:0.0001,GBPUSD:0.0001,USDJPY:0.01};
+
+let cfg={
+  apiToken:'',mt5Login:'',mt5Password:'',accType:'demo',
+  symbol:'XAUUSD',symName:'XAU/USD',
+  lot:0.01,riskMode:'fixed',riskPct:1,
+  sl:20,tp:40,lossLimit:10,cooldown:5,
+  emaFast:9,emaSlow:50,rsiOB:70,rsiOS:30,maxSpread:5
+};
+
+// ── UTILS ─────────────────────────────────────────────
+function log(msg,t=''){
+  const el=document.getElementById('sysLog');
+  const d=document.createElement('div');
+  d.className='log-line'+(t?' '+t:'');
+  d.textContent='['+new Date().toLocaleTimeString()+'] '+msg;
+  el.insertBefore(d,el.firstChild);
+  if(el.children.length>80)el.removeChild(el.lastChild);
+}
+function showAlert(msg){const b=document.getElementById('alertBox');b.textContent=msg;b.style.display='block';setTimeout(()=>b.style.display='none',8000);}
+function updateStatus(s){
+  document.getElementById('statusDot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
+  document.getElementById('statusText').textContent=s==='live'?'LIVE':s==='err'?'ERROR':'OFFLINE';
+}
+function send(obj){
+  if(ws&&ws.readyState===1){const id=reqId++;obj.req_id=id;ws.send(JSON.stringify(obj));return id;}
+  return null;
+}
+function updateRR(){
+  const sl=parseFloat(document.getElementById('slPips').value)||20;
+  const tp=parseFloat(document.getElementById('tpPips').value)||40;
+  document.getElementById('rrDisplay').textContent='1 : '+(tp/sl).toFixed(1);
+}
+function changeSym(sym,name,el){
+  document.querySelectorAll('.sym-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  cfg.symbol=sym;cfg.symName=name;
+  document.getElementById('symLabel').textContent=name;
+  candleCloses=[];priceHistory=[];lastSignal='wait';crossoverFired=false;
+  if(isConnected&&mt5Ready)subscribeMarket();
+}
+function pipSize(){return PIP[cfg.symbol]||0.0001;}
+function pipValue(lot){
+  const pip=pipSize();
+  if(cfg.symbol==='XAUUSD')return lot*100*pip;
+  if(cfg.symbol==='USDJPY')return lot*100000*pip/(lastPrice||1);
+  return lot*100000*pip;
+}
+function calcLot(){
+  if(cfg.riskMode==='pct'&&balance>0){
+    const riskAmt=balance*cfg.riskPct/100;
+    return Math.max(0.01,Math.round(riskAmt/(cfg.sl*pipValue(1))*100)/100);
+  }
+  return cfg.lot;
+}
+
+// ── INDICATORS ────────────────────────────────────────
+function calcEMA(data,period){
+  if(data.length<period)return null;
+  const k=2/(period+1);
+  let ema=data.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  for(let i=period;i<data.length;i++)ema=data[i]*k+ema*(1-k);
+  return ema;
+}
+function calcRSI(data,period){
+  if(data.length<period+1)return null;
+  let g=0,l=0;
+  for(let i=data.length-period;i<data.length;i++){const d=data[i]-data[i-1];if(d>0)g+=d;else l-=d;}
+  return 100-100/(1+(g/(l||0.0001)));
+}
+
+// ── SIGNAL ─────────────────────────────────────────────
+function analyzeSignal(){
+  if(candleCloses.length<cfg.emaSlow+5)return 'wait';
+  const prev=candleCloses.slice(0,-1);
+  const ema9=calcEMA(candleCloses,cfg.emaFast),ema50=calcEMA(candleCloses,cfg.emaSlow);
+  const pEma9=calcEMA(prev,cfg.emaFast),pEma50=calcEMA(prev,cfg.emaSlow);
+  const rsi=calcRSI(candleCloses,14);
+  if(ema9)document.getElementById('ema9v').textContent=ema9.toFixed(4);
+  if(ema50)document.getElementById('ema50v').textContent=ema50.toFixed(4);
+  if(rsi)document.getElementById('rsiv').textContent=rsi.toFixed(1);
+  if(!ema9||!ema50||!pEma9||!pEma50||!rsi)return 'wait';
+  const badge=document.getElementById('sigBadge'),txt=document.getElementById('sigText'),tr=document.getElementById('trendv');
+  const bullCross=pEma9<=pEma50&&ema9>ema50;
+  const bearCross=pEma9>=pEma50&&ema9<ema50;
+  if(bullCross&&rsi<cfg.rsiOB){
+    crossoverFired=false;badge.className='sig-badge buy';badge.textContent='BUY ↑';
+    txt.textContent='EMA9 crossed ABOVE EMA50 — bullish momentum';txt.style.color='var(--green)';
+    tr.textContent='BULLISH';tr.style.color='var(--green)';
+    log('🟢 Bullish crossover! RSI: '+rsi.toFixed(1),'s');return 'buy';
+  }else if(bearCross&&rsi>cfg.rsiOS){
+    crossoverFired=false;badge.className='sig-badge sell';badge.textContent='SELL ↓';
+    txt.textContent='EMA9 crossed BELOW EMA50 — bearish momentum';txt.style.color='var(--red)';
+    tr.textContent='BEARISH';tr.style.color='var(--red)';
+    log('🔴 Bearish crossover! RSI: '+rsi.toFixed(1),'s');return 'sell';
+  }else{
+    if(ema9>ema50){badge.className='sig-badge buy';badge.textContent='UPTREND';txt.textContent='EMA9 above EMA50 — watching for next cross';txt.style.color='var(--muted)';tr.textContent='UPTREND';tr.style.color='var(--c1)';}
+    else if(ema9<ema50){badge.className='sig-badge sell';badge.textContent='DOWNTREND';txt.textContent='EMA9 below EMA50 — watching for next cross';txt.style.color='var(--muted)';tr.textContent='DOWNTREND';tr.style.color='var(--amber)';}
+    else{badge.className='sig-badge wait';badge.textContent='WAIT';txt.textContent='EMAs converging';txt.style.color='var(--muted)';tr.textContent='NEUTRAL';tr.style.color='var(--muted)';}
+    return 'wait';
+  }
+}
+
+// ── TRADE LOGIC ────────────────────────────────────────
+function canTrade(){
+  if(tradeCooldown||currentTrade||dailyPnl<=-cfg.lossLimit||!mt5Ready)return false;
+  const spread=parseFloat(document.getElementById('spreadVal').textContent);
+  if(!isNaN(spread)&&spread>cfg.maxSpread){log('Spread too high: '+spread+'p','i');return false;}
+  if(Date.now()-lastTradeTime<cfg.cooldown*60000)return false;
+  return true;
+}
+
+function placeTrade(direction){
+  if(!canTrade())return;
+  const lot=calcLot();
+  const pip=pipSize();
+  const slP=direction==='buy'?lastPrice-cfg.sl*pip:lastPrice+cfg.sl*pip;
+  const tpP=direction==='buy'?lastPrice+cfg.tp*pip:lastPrice-cfg.tp*pip;
+  tradeCooldown=true;lastTradeTime=Date.now();
+  setTimeout(()=>{tradeCooldown=false;},15000);
+  currentTrade={dir:direction,entry:lastPrice,sl:slP,tp:tpP,lot:lot,openTime:new Date().toLocaleTimeString(),sym:cfg.symName};
+  crossoverFired=true;
+
+  // ── MT5 new order via Deriv WebSocket mt5_new_order ──
+  const cmd=direction==='buy'?0:1; // 0=BUY, 1=SELL
+  send({
+    mt5_new_order:{
+      login:parseInt(cfg.mt5Login),
+      symbol:MT5SYM[cfg.symbol],
+      volume:lot,
+      cmd:cmd,
+      price:lastPrice,
+      sl:parseFloat(slP.toFixed(5)),
+      tp:parseFloat(tpP.toFixed(5)),
+      comment:'EMABot'
+    }
+  });
+
+  updateTradeDisplay();
+  updateTradeParams(lot);
+  log('MT5 order: '+direction.toUpperCase()+' '+cfg.symName+' '+lot+'L @ '+lastPrice.toFixed(4)+' SL:'+slP.toFixed(4)+' TP:'+tpP.toFixed(4),'i');
+}
+
+function updateTradeDisplay(){
+  const noMsg=document.getElementById('noTradeMsg'),ap=document.getElementById('activeTradePnl'),panel=document.getElementById('activeTradePanel');
+  if(!currentTrade){noMsg.style.display='block';ap.style.display='none';return;}
+  noMsg.style.display='none';ap.style.display='block';
+  const isBuy=currentTrade.dir==='buy';
+  panel.innerHTML=`<div class="trade-panel ${isBuy?'buy-trade':'sell-trade'}">
+    <div class="tp-header">
+      <div class="tp-dir ${isBuy?'buy':'sell'}">${isBuy?'▲ BUY':'▼ SELL'} — ${currentTrade.sym}</div>
+      <div class="tp-stat">Opened ${currentTrade.openTime}</div>
+    </div>
+    <div class="tp-levels">
+      <div class="tp-level"><div class="tp-level-lbl">Entry</div><div class="tp-level-val entry">${currentTrade.entry.toFixed(4)}</div></div>
+      <div class="tp-level"><div class="tp-level-lbl">Stop Loss</div><div class="tp-level-val sl">${currentTrade.sl.toFixed(4)}</div></div>
+      <div class="tp-level"><div class="tp-level-lbl">Take Profit</div><div class="tp-level-val tp">${currentTrade.tp.toFixed(4)}</div></div>
+    </div>
+  </div>`;
+}
+
+function updateTradeParams(lot){
+  const l=lot||cfg.lot,pv=pipValue(l);
+  document.getElementById('curLot').textContent=l+' lots';
+  document.getElementById('pipVal').textContent='$'+pv.toFixed(3)+'/pip';
+  document.getElementById('slDist').textContent=cfg.sl+'p (−$'+(cfg.sl*pv).toFixed(2)+')';
+  document.getElementById('tpDist').textContent=cfg.tp+'p (+$'+(cfg.tp*pv).toFixed(2)+')';
+  document.getElementById('rrRatio').textContent='1:'+(cfg.tp/cfg.sl).toFixed(1);
+  document.getElementById('riskAmt').textContent='$'+(cfg.sl*pv).toFixed(2)+' max risk';
+}
+
+function updateFloatingPnl(){
+  if(!currentTrade||!lastPrice)return;
+  const pip=pipSize(),diff=currentTrade.dir==='buy'?lastPrice-currentTrade.entry:currentTrade.entry-lastPrice;
+  const pipsMoved=diff/pip,pv=pipValue(currentTrade.lot),floatPnl=pipsMoved*pv;
+  const pEl=document.getElementById('pipsPnl'),fEl=document.getElementById('floatPnl');
+  pEl.textContent=(pipsMoved>=0?'+':'')+pipsMoved.toFixed(1)+' pips';
+  pEl.className='pips-big '+(pipsMoved>0?'pos':pipsMoved<0?'neg':'zero');
+  fEl.textContent=(floatPnl>=0?'+':'')+'$'+floatPnl.toFixed(2);
+  fEl.style.color=floatPnl>0?'var(--green)':floatPnl<0?'var(--red)':'var(--muted)';
+  // Client-side SL/TP trigger (MT5 server also enforces — this is for display)
+  if(currentTrade.dir==='buy'){if(lastPrice<=currentTrade.sl)closeTrade('sl');else if(lastPrice>=currentTrade.tp)closeTrade('tp');}
+  else{if(lastPrice>=currentTrade.sl)closeTrade('sl');else if(lastPrice<=currentTrade.tp)closeTrade('tp');}
+}
+
+function closeTrade(reason){
+  if(!currentTrade)return;
+  const pip=pipSize(),closeP=reason==='tp'?currentTrade.tp:currentTrade.sl;
+  const diff=currentTrade.dir==='buy'?closeP-currentTrade.entry:currentTrade.entry-closeP;
+  const pipsMoved=diff/pip,pnl=pipsMoved*pipValue(currentTrade.lot);
+  dailyPnl+=pnl;if(pnl>0)wins++;else losses++;
+  allPips.push(pipsMoved);
+  addToHistory(currentTrade.dir,currentTrade.entry,closeP,pipsMoved,pnl,currentTrade.lot);
+  updateMetrics();updateSummary();
+  log((pnl>0?'✅ WIN':'❌ LOSS')+' | '+pipsMoved.toFixed(1)+'p | $'+pnl.toFixed(2)+' | '+reason.toUpperCase(),pnl>0?'s':'e');
+  currentTrade=null;updateTradeDisplay();
+  if(dailyPnl<=-cfg.lossLimit){log('Daily loss limit hit — stopping.','e');showAlert('⛔ Daily loss limit $'+cfg.lossLimit+' reached. Bot stopped.');stopBot();}
+}
+
+function addToHistory(dir,entry,close,pips,pnl,lot){
+  const c=document.getElementById('tradeLog');
+  const empty=c.querySelector('div[style*="text-align:center"]');if(empty)empty.remove();
+  const row=document.createElement('div');row.className='t-row';
+  const isBuy=dir==='buy';
+  row.innerHTML=`<span class="t-time">${new Date().toLocaleTimeString()}</span><span class="t-dir ${isBuy?'b':'s'}">${isBuy?'▲ BUY':'▼ SELL'}</span><span class="t-lot">${lot}L</span><span class="t-pips ${pips>=0?'p':'n'}">${pips>=0?'+':''}${pips.toFixed(1)}p</span><span class="t-pips ${pnl>=0?'p':'n'}">${pnl>=0?'+':''}$${Math.abs(pnl).toFixed(2)}</span>`;
+  c.insertBefore(row,c.firstChild);
+  if(c.children.length>50)c.removeChild(c.lastChild);
+}
+
+function updateSummary(){
+  const tot=allPips.reduce((a,b)=>a+b,0);
+  document.getElementById('sumPips').textContent=(tot>=0?'+':'')+tot.toFixed(1);
+  document.getElementById('sumPips').style.color=tot>=0?'var(--green)':'var(--red)';
+  if(allPips.length){
+    document.getElementById('sumBest').textContent='+'+Math.max(...allPips).toFixed(1)+'p';
+    document.getElementById('sumWorst').textContent=Math.min(...allPips).toFixed(1)+'p';
+    document.getElementById('sumAvg').textContent=(tot/allPips.length>=0?'+':'')+(tot/allPips.length).toFixed(1)+'p';
+  }
+}
+
+function updateMetrics(){
+  const total=wins+losses,wr=total>0?Math.round(wins/total*100):0;
+  const pEl=document.getElementById('metPnl');
+  pEl.textContent=(dailyPnl>=0?'+':'')+'$'+dailyPnl.toFixed(2);
+  pEl.style.color=dailyPnl>=0?'var(--green)':'var(--red)';
+  const wEl=document.getElementById('metWR');
+  wEl.textContent=wr+'%';wEl.style.color=wr>=60?'var(--green)':wr>=50?'var(--amber)':'var(--red)';
+  document.getElementById('metWins').textContent=wins;
+  document.getElementById('metLoss').textContent=losses;
+  const totP=allPips.reduce((a,b)=>a+b,0);
+  const tEl=document.getElementById('metPips');tEl.textContent=(totP>=0?'+':'')+totP.toFixed(1);tEl.style.color=totP>=0?'var(--green)':'var(--red)';
+  const pct=Math.max(0,100-(Math.abs(Math.min(0,dailyPnl))/cfg.lossLimit*100));
+  const bar=document.getElementById('lossFill');
+  bar.style.width=pct+'%';bar.style.background=pct>60?'var(--green)':pct>30?'var(--amber)':'var(--red)';
+  document.getElementById('lossUsed').textContent='$'+Math.abs(Math.min(0,dailyPnl)).toFixed(2);
+}
+
+function startCandleTimer(){
+  candleCountdown=60;clearInterval(candleInterval);
+  candleInterval=setInterval(()=>{
+    candleCountdown--;if(candleCountdown<=0)candleCountdown=60;
+    document.getElementById('candleTimer').textContent=candleCountdown+'s';
+    document.getElementById('candleProgress').style.width=((60-candleCountdown)/60*100)+'%';
+  },1000);
+}
+
+function saveSettings(){
+  cfg.apiToken=document.getElementById('apiToken').value.trim();
+  cfg.mt5Login=document.getElementById('mt5Login').value.trim();
+  cfg.mt5Password=document.getElementById('mt5Password').value;
+  cfg.accType=document.getElementById('accType').value;
+  cfg.lot=parseFloat(document.getElementById('lotSize').value)||0.01;
+  cfg.riskMode=document.getElementById('riskMode').value;
+  cfg.riskPct=parseFloat(document.getElementById('riskPct').value)||1;
+  cfg.sl=parseInt(document.getElementById('slPips').value)||20;
+  cfg.tp=parseInt(document.getElementById('tpPips').value)||40;
+  cfg.lossLimit=parseFloat(document.getElementById('lossLimit').value)||10;
+  cfg.cooldown=parseInt(document.getElementById('cooldown').value)||5;
+  cfg.emaFast=parseInt(document.getElementById('emaFast').value)||9;
+  cfg.emaSlow=parseInt(document.getElementById('emaSlow').value)||50;
+  cfg.rsiOB=parseInt(document.getElementById('rsiOB').value)||70;
+  cfg.rsiOS=parseInt(document.getElementById('rsiOS').value)||30;
+  cfg.maxSpread=parseInt(document.getElementById('maxSpread').value)||5;
+  document.getElementById('lossLimitLbl').textContent='-$'+cfg.lossLimit;
+  updateTradeParams(cfg.lot);
+  document.getElementById('rrDisplay').textContent='1:'+(cfg.tp/cfg.sl).toFixed(1);
+  log('Settings saved. MT5 Login:'+cfg.mt5Login+' | '+cfg.accType.toUpperCase()+' | Lot:'+cfg.lot+' | SL:'+cfg.sl+'p | TP:'+cfg.tp+'p','i');
+}
+
+// ── CONNECTION: Deriv WS → authorize → mt5_login ──────
+function connectWS(){
+  if(ws){ws.close();ws=null;}
+  if(!cfg.apiToken){showAlert('Enter your Deriv API token in Settings!');stopBot();return;}
+  if(!cfg.mt5Login||!cfg.mt5Password){showAlert('Enter your MT5 Login ID and Password!');stopBot();return;}
+  const appId='16303'; // standard Deriv app ID
+  const wsUrl='wss://ws.derivws.com/websockets/v3?app_id='+appId;
+  log('Connecting to Deriv WebSocket...','i');
+  updateStatus('live');
+  ws=new WebSocket(wsUrl);
+  ws.onopen=()=>{
+    isConnected=true;
+    log('WS connected. Authorizing API token...','i');
+    send({authorize:cfg.apiToken});
+  };
+  ws.onclose=()=>{
+    isConnected=false;mt5Ready=false;updateStatus('err');
+    log('WS disconnected.','e');
+    if(isRunning)setTimeout(connectWS,5000);
+  };
+  ws.onerror=()=>{
+    log('WS error.','e');
+    updateStatus('err');
+  };
+  ws.onmessage=(e)=>handleMessage(JSON.parse(e.data));
+}
+
+function subscribeMarket(){
+  // Subscribe to ticks and candle history for the selected symbol
+  // MT5 uses different symbol format — Deriv WS uses frx prefix for ticks
+  const tickSym='frx'+cfg.symbol; // e.g. frxXAUUSD
+  send({ticks:tickSym,subscribe:1});
+  send({ticks_history:tickSym,end:'latest',count:300,style:'candles',granularity:60});
+  log('Subscribed to '+cfg.symName+' market feed','s');
+}
+
+function handleMessage(data){
+  if(data.error){
+    log('Error ['+data.error.code+']: '+data.error.message,'e');
+    showAlert('['+data.error.code+'] '+data.error.message);
+    if(['InvalidToken','AuthorizationRequired'].includes(data.error.code))stopBot();
+    return;
+  }
+
+  // Step 1: API token authorized → now login to MT5
+  if(data.authorize){
+    balance=data.authorize.balance||0;
+    log('API token authorized ✓. Logging into MT5...','s');
+    // MT5 login via Deriv WS
+    const server=cfg.accType==='demo'?'Deriv-Demo':'DerivSVG-Server-03';
+    send({
+      mt5_login:{
+        login:parseInt(cfg.mt5Login),
+        password:cfg.mt5Password,
+        server:server
+      }
+    });
+  }
+
+  // Step 2: MT5 login success → subscribe to market
+  if(data.mt5_login){
+    mt5Ready=true;
+    const info=data.mt5_login;
+    balance=info.balance||balance;
+    document.getElementById('metBal').textContent='$'+parseFloat(balance).toFixed(2);
+    log('MT5 logged in ✓ | Login: '+cfg.mt5Login+' | Balance: $'+balance,'s');
+    // Subscribe to balance updates
+    send({balance:1,subscribe:1});
+    subscribeMarket();
+  }
+
+  // Candle history
+  if(data.candles){
+    candleCloses=data.candles.map(c=>parseFloat(c.close));
+    log('Loaded '+candleCloses.length+' candles','i');
+    analyzeSignal();
+  }
+
+  // Live tick
+  if(data.tick){
+    const tick=data.tick;
+    prevPrice=lastPrice;lastPrice=parseFloat(tick.quote);
+    document.getElementById('livePrice').textContent=lastPrice.toFixed(4);
+    const change=lastPrice-prevPrice;
+    const chEl=document.getElementById('priceChange');
+    if(change>0){chEl.style.color='var(--green)';chEl.textContent='▲ +'+change.toFixed(4);}
+    else if(change<0){chEl.style.color='var(--red)';chEl.textContent='▼ '+change.toFixed(4);}
+    if(tick.ask&&tick.bid){
+      const spread=((tick.ask-tick.bid)/pipSize()).toFixed(1);
+      document.getElementById('spreadVal').textContent=spread;
+    }
+    priceHistory.push(lastPrice);
+    if(priceHistory.length%10===0){
+      candleCloses.push(lastPrice);
+      if(candleCloses.length>400)candleCloses.shift();
+      lastSignal=analyzeSignal();
+    }
+    updateFloatingPnl();
+    if(isRunning&&!currentTrade&&lastSignal!=='wait'&&!crossoverFired&&canTrade()){
+      crossoverFired=true;placeTrade(lastSignal);
+    }
+  }
+
+  // MT5 order result
+  if(data.mt5_new_order){
+    const o=data.mt5_new_order;
+    if(o.order){log('MT5 order confirmed: #'+o.order,'s');}
+    else{log('MT5 order response: '+JSON.stringify(o).slice(0,100),'i');}
+  }
+
+  // Balance update
+  if(data.balance){
+    balance=data.balance.balance;
+    document.getElementById('metBal').textContent='$'+parseFloat(balance).toFixed(2);
+  }
+
+  // MT5 position closed (server-side SL/TP hit)
+  if(data.mt5_get_positions){
+    // If no open positions, mark trade closed
+    const positions=data.mt5_get_positions;
+    if(positions&&positions.length===0&&currentTrade){
+      log('MT5: position closed by server (SL/TP hit)','i');
+      closeTrade('server');
+    }
+  }
+}
+
+function startBot(){
+  cfg.apiToken=document.getElementById('apiToken').value.trim();
+  cfg.mt5Login=document.getElementById('mt5Login').value.trim();
+  cfg.mt5Password=document.getElementById('mt5Password').value;
+  if(!cfg.apiToken){showAlert('Enter your Deriv API token in Settings!');return;}
+  if(!cfg.mt5Login||!cfg.mt5Password){showAlert('Enter your MT5 Login ID and Password in Settings!');return;}
+  saveSettings();
+  isRunning=true;mt5Ready=false;currentTrade=null;
+  document.getElementById('btnRun').style.display='none';
+  document.getElementById('btnStop').style.display='block';
+  log('Starting EMA Trend Bot...','i');
+  startCandleTimer();
+  connectWS();
+  updateTradeParams(cfg.lot);
+}
+
+function stopBot(){
+  isRunning=false;mt5Ready=false;
+  if(ws){ws.close();ws=null;}
+  clearInterval(candleInterval);
+  updateStatus('err');
+  document.getElementById('btnRun').style.display='block';
+  document.getElementById('btnStop').style.display='none';
+  currentTrade=null;updateTradeDisplay();
+  log('Bot stopped.','e');
+}
+
+updateMetrics();updateTradeParams(0.01);
+</script>
+</body>
+</html>
